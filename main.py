@@ -31,7 +31,9 @@ example_weights = [[0.1, 0.1, -0.3],
                    [0.0, 0.7, 0.1],
                    [0.2, 0.4, 0.0],
                    [-0.3, 0.5, 0.1]]
-example_input = np.array([[0.5], [0.75], [0.1]])
+
+
+# example_input = np.array([[0.5], [0.75], [0.1]])
 
 
 def neural_network(input, weights, bias):
@@ -98,43 +100,32 @@ class FCL_API:
 
     def learn_model(self, test_input, expected_result, alpha, rates):
         weight = self.layers[0]
+        neuron_count = self.layers[0].shape[0]
         for i in range(rates):
-            # res = self.predict(test_input)
-            # delta = 2 * (res - expected_result) * test_input
-            # error = (res - expected_result) ** 2
-            # print("epoka: ", i + 1, "\nwaga: ", weight, "\nerror: ", error, "\nwynik: ", res, "\n")
-            # weight = weight - delta * alpha
-            # self.update_layer(0, weight)
-            self.learn_single_neuron(test_input, expected_result, alpha, weight, i)
+            self.learn_single_neuron(test_input, expected_result, alpha, weight, i, neuron_count)
 
-    def learn_single_neuron(self, test_input, expected_result, alpha, weight, epoch):
+    def learn_single_neuron(self, test_input, expected_result, alpha, weight, epoch, neuron_count):
         size = test_input.shape[1]
         for i in range(size):
             input_column = test_input[:, i]
             expected_result_column = expected_result[:, i]
             res = self.predict(input_column)
             wynik = (res - expected_result_column).reshape(res.shape[0], 1)
-            delta = 2 * np.dot(wynik, input_column.reshape(1, input_column.shape[0]))
-            error = (res - expected_result_column) ** 2
-            print("epoka: ", epoch, "\nseria: ", i + 1, "\nwaga: ", weight, "\nerror: ", np.sum(error), "\nwynik: ", res.T, "\n")
+            delta = 2/neuron_count * np.dot(wynik, input_column.reshape(1, input_column.shape[0]))
+            error = 1/neuron_count * (res - expected_result_column) ** 2
+
+            print("epoka: ", epoch, "\nseria: ", i + 1, "\nwaga: ", weight, "\nerror: ", np.sum(error), "\nwynik: ",
+                  res.T, "\n")
+
             weight = weight - delta * alpha
             print("nowa waga: ", weight, "\n")
             self.update_layer(0, weight)
-
 
     def update_layer(self, layer, newLayer):
         self.layers[layer] = newLayer
 
     def printLayers(self):
         print(self.layers)
-
-
-# test = FCL_API(3)
-# test.load_weights('weights2.txt')
-# test.add_layer(5, -1, 1)
-# test.add_layer(3, -1, 1)
-# test.printLayers()
-# print(test.predict(np.array([[0.5], [0.75], [0.1]])))
 
 # test = FCL_API(1)
 # test.add_layer(1, 0.5, 0.5)
@@ -153,6 +144,53 @@ test_input = np.array([[0.5, 0.1, 0.2, 0.8],
                        [0.75, 0.3, 0.1, 0.9],
                        [0.1, 0.7, 0.6, 0.2]])
 
-model = FCL_API(3)
-model.load_weights('weights2.txt')
-model.learn_model(test_input, expected_result, 0.01, 2)
+# model = FCL_API(3)
+# model.load_weights('weights2.txt')
+# model.learn_model(test_input, expected_result, 0.01, 2)
+
+# ZAD 3
+
+
+def build_expected_result(data):
+    matrix = np.array([[0.0], [0.0], [0.0], [0.0]])
+    matrix[int(data[0]) - 1] = 1
+    return matrix
+
+
+def split_data(data):
+
+    elements = data.strip().split()
+    matrix = [[float(element)] for element in elements]
+    last_element = matrix[-1]
+    expected_matrix = build_expected_result(last_element)
+    test_input = np.array(matrix[:-1])
+    expected_index = last_element[0] - 1
+    return test_input, expected_matrix, expected_index
+
+
+def rgb(training_file, test_file):
+    model = FCL_API(3)
+    model.add_layer(4, 0, 1)
+    correct_answers = 0
+    lines = 0
+
+    with open(training_file, 'r') as file:
+        for line in file:
+            test_input, expected_matrix, expected_index = split_data(line)
+            model.learn_model(test_input, expected_matrix, 0.11, 20)
+
+    with open(test_file, 'r') as file:
+        for line in file:
+            lines += 1
+            test_input, expected_matrix, expected_index = split_data(line)
+            result = model.predict(test_input)
+            index_max = np.argmax(result)
+            cords_max = np.unravel_index(index_max, result.shape)
+            cords_max = cords_max[1]
+            if cords_max == expected_index:
+                correct_answers += 1
+            print('cords', cords_max, '\n', 'result', result, '\n', 'expected index', expected_index, '\n', 'expected matrix', expected_matrix.T, '\n')
+
+    print('percentage', correct_answers/lines)
+
+# rgb('training.txt', 'test.txt')
