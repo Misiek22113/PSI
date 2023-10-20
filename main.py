@@ -157,15 +157,13 @@ def build_expected_result(data):
     return matrix
 
 
-def split_data(data):
-
-    elements = data.strip().split()
-    matrix = [[float(element)] for element in elements]
-    last_element = matrix[-1]
-    expected_matrix = build_expected_result(last_element)
-    test_input = np.array(matrix[:-1])
-    expected_index = last_element[0] - 1
-    return test_input, expected_matrix, expected_index
+def split_data(filename):
+    test_input = np.genfromtxt(filename, delimiter=" ", usecols=range(0, 3))
+    expected_data = np.genfromtxt(filename, delimiter=" ", usecols=range(3, 4))
+    expected_matrix = np.zeros((expected_data.shape[0], 4))
+    for i in range(int(expected_data.shape[0])):
+        expected_matrix[i, int(expected_data[i]) - 1] = 1
+    return test_input, expected_matrix
 
 
 def rgb(training_file, test_file):
@@ -174,12 +172,14 @@ def rgb(training_file, test_file):
     correct_answers = 0
     lines = 0
 
-    with open(training_file, 'r') as file:
-        for line in file:
-            test_input, expected_matrix, expected_index = split_data(line)
-            model.learn_model(test_input, expected_matrix, 0.11, 20)
+    test_input, expected_matrix = split_data(training_file)
+    line_index = 0
+    for line in test_input:
+        model.learn_model(line, expected_matrix[line_index, :], 0.11, 20)
+
 
     with open(test_file, 'r') as file:
+        test_input, expected_matrix = split_data(test_file)
         for line in file:
             lines += 1
             test_input, expected_matrix, expected_index = split_data(line)
@@ -193,4 +193,4 @@ def rgb(training_file, test_file):
 
     print('percentage', correct_answers/lines)
 
-# rgb('training.txt', 'test.txt')
+rgb('training.txt', 'test.txt')
