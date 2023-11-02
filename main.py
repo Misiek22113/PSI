@@ -70,6 +70,10 @@ def deep_neural_network(input, first_weights, second_weights):
 
 # zad 4
 
+def read_input(file_name):
+    return np.genfromtxt(file_name, delimiter=',')
+
+
 class FCL_API:
 
     def __init__(self, entry):
@@ -91,10 +95,15 @@ class FCL_API:
         else:
             self.layers.append(np.around(np.random.uniform(start_range, end_range, (n, self.layers[-1].shape[0])), 2))
 
+    def ReLU(self, result_matrix):
+        clipped_matrix = np.clip(result_matrix, a_min=0, a_max=None)
+        return clipped_matrix
+
     def predict(self, input):
         for layer in self.layers:
             input = np.dot(layer, input)
-        return input.reshape(-1, 1)
+            input = self.ReLU(input)
+        return input
 
     def load_weights(self, file_name):
         self.layers.append(np.genfromtxt(file_name, delimiter=','))
@@ -116,7 +125,7 @@ class FCL_API:
     def learn_single_neuron(self, test_input, expected_result):
         i = 0
         for layer in self.layers:
-            res = self.predict(test_input)
+            res = self.predict(test_input).reshape(-1, 1)
             wynik = (res - expected_result).reshape(res.shape[0], 1)
             delta = 2/layer.shape[0] * np.dot(wynik, test_input.T)
             error = 1/layer.shape[0] * (res - expected_result) ** 2
@@ -127,7 +136,7 @@ class FCL_API:
     def update_layer(self, layer_index, new_weight):
         self.layers[layer_index] = new_weight
 
-    def printLayers(self):
+    def print_layers(self):
         print(self.layers)
 
 # test = FCL_API(1)
@@ -175,11 +184,11 @@ def rgb(training_file, test_file):
 
     test_input, test_expected_matrix = split_data(test_file)
     for i in range(test_input.shape[0]):
-        result = model.predict(np.array(test_input[i, :]).reshape(-1, 1))
+        result = model.predict(np.array(test_input[i, :]).reshape(-1, 1)).reshape(-1, 1)
         if np.argmax(result) == np.argmax(test_expected_matrix[i, :]):
             correct_answers += 1
         lines += 1
 
     print('percentage', correct_answers/lines)
 
-rgb('training.txt', 'test.txt')
+# rgb('training.txt', 'test.txt')
