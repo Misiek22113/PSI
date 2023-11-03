@@ -1,6 +1,8 @@
 import random
 import numpy as np
 
+from fcl import FCL_API
+
 # from keras.model import Sequential
 # from keras.layers import Dense
 
@@ -72,72 +74,6 @@ def deep_neural_network(input, first_weights, second_weights):
 
 def read_input(file_name):
     return np.genfromtxt(file_name, delimiter=',')
-
-
-class FCL_API:
-
-    def __init__(self, entry):
-        self.entry = entry
-        self.layers = []
-        self.alpha = 0
-
-    def add_layer(self, n, weight_min_value, weight_max_value):
-
-        if weight_max_value is not None and weight_min_value is not None:
-            start_range = weight_min_value
-            end_range = weight_max_value
-        else:
-            start_range = -1
-            end_range = 1
-
-        if len(self.layers) == 0:
-            self.layers.append(np.around(np.random.uniform(start_range, end_range, (n, self.entry)), 2))
-        else:
-            self.layers.append(np.around(np.random.uniform(start_range, end_range, (n, self.layers[-1].shape[0])), 2))
-
-    def ReLU(self, result_matrix):
-        clipped_matrix = np.clip(result_matrix, a_min=0, a_max=None)
-        return clipped_matrix
-
-    def predict(self, input):
-        for layer in self.layers:
-            input = np.dot(layer, input)
-            input = self.ReLU(input)
-        return input
-
-    def load_weights(self, file_name):
-        self.layers.append(np.genfromtxt(file_name, delimiter=','))
-
-    def learn_model(self, test_input, expected_result, alpha, rates):
-        self.alpha = alpha
-        for i in range(rates):
-            self.learn_neurons(test_input, expected_result)
-
-
-    def learn_neurons(self, test_input, expected_result):
-        if test_input.shape[1] > 1:
-            for i in range(test_input.shape[1]):
-                self.learn_single_neuron(np.array([test_input[:, i]]).T, np.array([expected_result[:, i]]).T)
-        else:
-            for i in range(test_input.shape[1]):
-                self.learn_single_neuron(test_input, expected_result)
-
-    def learn_single_neuron(self, test_input, expected_result):
-        i = 0
-        for layer in self.layers:
-            res = self.predict(test_input).reshape(-1, 1)
-            wynik = (res - expected_result).reshape(res.shape[0], 1)
-            delta = 2/layer.shape[0] * np.dot(wynik, test_input.T)
-            error = 1/layer.shape[0] * (res - expected_result) ** 2
-            weight = layer - delta * self.alpha
-            self.update_layer(i, weight)
-
-
-    def update_layer(self, layer_index, new_weight):
-        self.layers[layer_index] = new_weight
-
-    def print_layers(self):
-        print(self.layers)
 
 # test = FCL_API(1)
 # test.add_layer(1, 0.5, 0.5)
