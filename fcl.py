@@ -85,7 +85,6 @@ class FCL_API:
                 result = (layer_output - expected_column).reshape(layer_output.shape[0], 1)
                 layer_output_delta = 2/expected_result.shape[0] * result
                 self.update_weights(layer_output_delta, input_column)
-                print(layer_output, "\n\n")
 
     def update_weights(self, layer_output_delta, input_column):
         layer_output_weight_delta = layer_output_delta * self.predict_to_layer(input_column, len(self.layers) - 1).T
