@@ -66,7 +66,7 @@ def train_on_mnist():
 
     print('percentage', correct_answers/lines)
 
-train_on_mnist()
+# train_on_mnist()
 
 # ZAD 4
 

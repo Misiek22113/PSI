@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 
 
@@ -38,6 +40,16 @@ class FCL_API:
     def predict(self, input):
         for i in range(len(self.layers)):
             input = np.dot(self.layers[i], input)
+            if i == 0:
+                input = self.dropout_method(input, 0.5)
+            input = self.function_controller(input, i)
+        return input
+
+    def predict_to_layer(self, input, layer):
+        for i in range(layer):
+            input = np.dot(self.layers[i], input)
+            if i == 0:
+                input = self.dropout_method(input, 0.5)
             input = self.function_controller(input, i)
         return input
 
@@ -48,12 +60,6 @@ class FCL_API:
             return self.ReLU(input)
         else:
             return input
-
-    def predict_to_layer(self, input, layer):
-        for i in range(layer):
-            input = np.dot(self.layers[i], input)
-            input = self.function_controller(input, i)
-        return input
 
     def load_weights(self, file_name):
         self.layers.append(np.genfromtxt(file_name, delimiter=','))
@@ -112,8 +118,21 @@ class FCL_API:
         self.update_layer(len(self.layers) - 1,
                           self.layers[len(self.layers) - 1] - self.alpha * layer_output_weight_delta)
 
+    def dropout_method(self, hidden_layer_result, percentage):
+        number_of_neurons = self.layers[0].shape[0]
+        dropout_column = np.zeros((number_of_neurons, 1))
+        neurons_replaced = 0
+        while True:
+            index = random.randint(0, number_of_neurons - 1)
+            if dropout_column[index] == 0:
+                dropout_column[index] = 1 * hidden_layer_result[index]
+                neurons_replaced += 1
+            if neurons_replaced >= number_of_neurons * percentage:
+                break
 
-    def dropout_method(self):
+        dropout_result = dropout_column * (1 / percentage)
+
+        return dropout_result
 
 
     def update_layer(self, layer_index, new_weight):
