@@ -19,6 +19,8 @@ class FCL_API:
             start_range = -1
             end_range = 1
 
+        self.activation_function.append(activation_function)
+
         if len(self.layers) == 0:
             self.layers.append(np.around(np.random.uniform(start_range, end_range, (n, self.entry)), 2))
         else:
@@ -34,15 +36,23 @@ class FCL_API:
         return clipped_matrix
 
     def predict(self, input):
-        for layer in self.layers:
-            input = np.dot(layer, input)
-            input = self.ReLU(input)
+        for i in range(len(self.layers)):
+            input = np.dot(self.layers[i], input)
+            input = self.function_controller(input, i)
         return input
+
+    def function_controller(self, input, layer, derivative=False):
+        if self.activation_function[layer] == "relu":
+            if derivative:
+                return self.ReLU_derivative(input)
+            return self.ReLU(input)
+        else:
+            return input
 
     def predict_to_layer(self, input, layer):
         for i in range(layer):
             input = np.dot(self.layers[i], input)
-            input = self.ReLU(input)
+            input = self.function_controller(input, i)
         return input
 
     def load_weights(self, file_name):
@@ -93,7 +103,7 @@ class FCL_API:
         for i in range(len(self.layers) - 1, 0, -1):
             layer_result = self.predict_to_layer(input_column, i)
             layer_hidden_delta = np.dot(self.layers[i].T, layer_hidden_delta)
-            layer_hidden_delta = layer_hidden_delta * self.ReLU_derivative(layer_result)
+            layer_hidden_delta = layer_hidden_delta * self.function_controller(layer_result, i, True)
             layer_hidden_weight_delta = layer_hidden_delta * input_column.T
             res = self.alpha * layer_hidden_weight_delta
             array = np.array(self.layers[i-1])
@@ -101,6 +111,9 @@ class FCL_API:
 
         self.update_layer(len(self.layers) - 1,
                           self.layers[len(self.layers) - 1] - self.alpha * layer_output_weight_delta)
+
+
+    def dropout_method(self):
 
 
     def update_layer(self, layer_index, new_weight):
