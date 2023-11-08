@@ -8,6 +8,7 @@ class FCL_API:
     def __init__(self, entry):
         self.entry = entry
         self.layers = []
+        self.layers_results = []
         self.alpha = 0
         self.activation_function = []
 
@@ -22,6 +23,7 @@ class FCL_API:
             end_range = 1
 
         self.activation_function.append(activation_function)
+        self.layers_results.append(0)
 
         if len(self.layers) == 0:
             self.layers.append(np.around(np.random.uniform(start_range, end_range, (n, self.entry)), 2))
@@ -37,21 +39,15 @@ class FCL_API:
         clipped_matrix = np.where(clipped_matrix > 0, 1, clipped_matrix)
         return clipped_matrix
 
-    def predict(self, input):
+    def predict(self, input, training=False):
         for i in range(len(self.layers)):
             input = np.dot(self.layers[i], input)
+            input = self.function_controller(input, i)
             if i == 0:
                 input = self.dropout_method(input, 0.5)
-            input = self.function_controller(input, i)
+            self.layers_results[i] = input
         return input
 
-    def predict_to_layer(self, input, layer):
-        for i in range(layer):
-            input = np.dot(self.layers[i], input)
-            if i == 0:
-                input = self.dropout_method(input, 0.5)
-            input = self.function_controller(input, i)
-        return input
 
     def function_controller(self, input, layer, derivative=False):
         if self.activation_function[layer] == "relu":
@@ -97,17 +93,17 @@ class FCL_API:
             for column in range(input_data.shape[1]):
                 input_column = np.array([input_data[:, column]]).T
                 expected_column = np.array([expected_result[:, column]]).T
-                layer_output = self.predict(input_column).reshape(-1, 1)
+                layer_output = self.predict(input_column, True).reshape(-1, 1)
                 result = (layer_output - expected_column).reshape(layer_output.shape[0], 1)
                 layer_output_delta = 2/expected_result.shape[0] * result
                 self.update_weights(layer_output_delta, input_column)
 
     def update_weights(self, layer_output_delta, input_column):
-        layer_output_weight_delta = layer_output_delta * self.predict_to_layer(input_column, len(self.layers) - 1).T
+        layer_output_weight_delta = layer_output_delta * self.layers_results[0].T
 
         layer_hidden_delta = layer_output_delta
         for i in range(len(self.layers) - 1, 0, -1):
-            layer_result = self.predict_to_layer(input_column, i)
+            layer_result = self.layers_results[0]
             layer_hidden_delta = np.dot(self.layers[i].T, layer_hidden_delta)
             layer_hidden_delta = layer_hidden_delta * self.function_controller(layer_result, i, True)
             layer_hidden_weight_delta = layer_hidden_delta * input_column.T
@@ -119,21 +115,13 @@ class FCL_API:
                           self.layers[len(self.layers) - 1] - self.alpha * layer_output_weight_delta)
 
     def dropout_method(self, hidden_layer_result, percentage):
-        number_of_neurons = self.layers[0].shape[0]
-        dropout_column = np.zeros((number_of_neurons, 1))
-        neurons_replaced = 0
-        while True:
-            index = random.randint(0, number_of_neurons - 1)
-            if dropout_column[index] == 0:
-                dropout_column[index] = 1 * hidden_layer_result[index]
-                neurons_replaced += 1
-            if neurons_replaced >= number_of_neurons * percentage:
-                break
+        num_neurons = hidden_layer_result.shape[0]
 
-        dropout_result = dropout_column * (1 / percentage)
+        dropout_mask = np.random.binomial(1, 1 - percentage, num_neurons).reshape(-1, 1)
+
+        dropout_result = np.multiply(dropout_mask, hidden_layer_result) / (1 - percentage)
 
         return dropout_result
-
 
     def update_layer(self, layer_index, new_weight):
         self.layers[layer_index] = new_weight
