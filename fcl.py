@@ -10,6 +10,7 @@ class FCL_API:
         self.layers = []
         self.layers_results = []
         self.alpha = 0
+        self.dropout_mask = []
         self.activation_function = []
 
     def add_layer(self, n, weight_min_value, weight_max_value, activation_function):
@@ -43,7 +44,7 @@ class FCL_API:
         for i in range(len(self.layers)):
             input = np.dot(self.layers[i], input)
             input = self.function_controller(input, i)
-            if i == 0:
+            if i == 0 and training:
                 input = self.dropout_method(input, 0.5)
             self.layers_results[i] = input
         return input
@@ -90,6 +91,7 @@ class FCL_API:
     def fit(self, input_data, expected_result, alpha, rates):
         self.alpha = alpha
         for i in range(rates):
+            print("epoka: ", i+1)
             for column in range(input_data.shape[1]):
                 input_column = np.array([input_data[:, column]]).T
                 expected_column = np.array([expected_result[:, column]]).T
@@ -114,12 +116,28 @@ class FCL_API:
         self.update_layer(len(self.layers) - 1,
                           self.layers[len(self.layers) - 1] - self.alpha * layer_output_weight_delta)
 
+    def fit_batch(self, input_data, expected_result, alpha, rates):
+        self.alpha = alpha
+        for i in range(rates):
+            # print("epoka: ", i + 1)
+            batch_input = np.copy(input_data)
+            layer_hidden = np.dot(self.layers[0], batch_input)
+            layer_hidden = self.function_controller(layer_hidden, 0)
+            self.dropout_mask = np.random.binomial(1, 1 - 0.5, layer_hidden.shape)
+            layer_hidden = self.dropout_method(layer_hidden, 0.5)
+            layer_output = np.dot(self.layers[1], layer_hidden)
+            layer_output_delta = (2 / expected_result.shape[0] * (layer_output - expected_result)) / batch_input.shape[1]
+            layer_hidden_delta = np.dot(self.layers[1].T, layer_output_delta)
+            layer_hidden_delta = layer_hidden_delta * self.function_controller(layer_hidden, 0, True)
+            layer_hidden_delta = layer_hidden_delta * self.dropout_mask
+            layer_output_weight_delta = np.dot(layer_output_delta, layer_hidden.T)
+            layer_hidden_weight_delta = np.dot(layer_hidden_delta, batch_input.T)
+            self.update_layer(0, self.layers[0] - self.alpha * layer_hidden_weight_delta)
+            self.update_layer(1, self.layers[1] - self.alpha * layer_output_weight_delta)
+
     def dropout_method(self, hidden_layer_result, percentage):
-        num_neurons = hidden_layer_result.shape[0]
-
-        dropout_mask = np.random.binomial(1, 1 - percentage, num_neurons).reshape(-1, 1)
-
-        dropout_result = np.multiply(dropout_mask, hidden_layer_result) / (1 - percentage)
+        # dropout_mask = np.random.binomial(1, 1 - percentage, hidden_layer_result.shape)
+        dropout_result = np.multiply(self.dropout_mask, hidden_layer_result) * (1 / percentage)
 
         return dropout_result
 

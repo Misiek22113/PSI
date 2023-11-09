@@ -14,6 +14,8 @@ model.load_weights('lab3_zad1_y.txt')
 # ZAD 2
 
 # expected_result = read_input('lab3_zad2_expected.txt')
+# model.fit(input, expected_result, 0.1, 50)
+
 
 # ZAD 3
 
@@ -31,6 +33,12 @@ def read_mnist_images(filename):
     images = data.reshape(num_images, rows, cols)
     return images
 
+def refactor_mnist_images(images):
+    new_images = []
+    for image in images:
+        new_images.append(image.reshape(-1, 1) / 255)
+    return new_images
+
 def read_mnist_labels(filename):
     with open(filename, 'rb') as f:
         magic = int.from_bytes(f.read(4), byteorder='big')
@@ -38,20 +46,14 @@ def read_mnist_labels(filename):
         labels = np.fromfile(f, dtype=np.uint8)
     return labels
 
-def create_expected_matrix(index):
-    expected_matrix = np.array([[0], [0], [0], [0], [0], [0], [0], [0], [0], [0]])
-    expected_matrix[index][0] = 1
-    return expected_matrix
-
 def train_on_mnist():
     training_input = read_mnist_images('train-images-idx3-ubyte')
     training_expected = read_mnist_labels('train-labels-idx1-ubyte')
 
-    for i in range(training_input.shape[0]):
-        training_single_expected = create_expected_matrix(training_expected[i])
-        if i % 1000 == 0:
-            print(i)
-        model_3.fit(training_input[i].reshape(-1, 1) / 255, training_single_expected, 0.01, 10)
+    images = training_input.reshape(training_input.shape[0], -1) / 255
+    labels = np.eye(10)[training_expected]
+
+    model_3.fit(images.T, labels.T, 0.01, 10)
 
     test_input = read_mnist_images('t10k-images-idx3-ubyte')
     test_expected = read_mnist_labels('t10k-labels-idx1-ubyte')
