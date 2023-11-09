@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 
 
@@ -6,7 +8,9 @@ class FCL_API:
     def __init__(self, entry):
         self.entry = entry
         self.layers = []
+        self.layers_results = []
         self.alpha = 0
+        self.dropout_mask = []
         self.activation_function = []
 
     def add_layer(self, n, weight_min_value, weight_max_value, activation_function):
@@ -18,6 +22,9 @@ class FCL_API:
         else:
             start_range = -1
             end_range = 1
+
+        self.activation_function.append(activation_function)
+        self.layers_results.append(0)
 
         if len(self.layers) == 0:
             self.layers.append(np.around(np.random.uniform(start_range, end_range, (n, self.entry)), 2))
@@ -33,17 +40,23 @@ class FCL_API:
         clipped_matrix = np.where(clipped_matrix > 0, 1, clipped_matrix)
         return clipped_matrix
 
-    def predict(self, input):
-        for layer in self.layers:
-            input = np.dot(layer, input)
-            input = self.ReLU(input)
+    def predict(self, input, training=False):
+        for i in range(len(self.layers)):
+            input = np.dot(self.layers[i], input)
+            input = self.function_controller(input, i)
+            if i == 0 and training:
+                input = self.dropout_method(input, 0.5)
+            self.layers_results[i] = input
         return input
 
-    def predict_to_layer(self, input, layer):
-        for i in range(layer):
-            input = np.dot(self.layers[i], input)
-            input = self.ReLU(input)
-        return input
+
+    def function_controller(self, input, layer, derivative=False):
+        if self.activation_function[layer] == "relu":
+            if derivative:
+                return self.ReLU_derivative(input)
+            return self.ReLU(input)
+        else:
+            return input
 
     def load_weights(self, file_name):
         self.layers.append(np.genfromtxt(file_name, delimiter=','))
@@ -78,22 +91,23 @@ class FCL_API:
     def fit(self, input_data, expected_result, alpha, rates):
         self.alpha = alpha
         for i in range(rates):
+            print("epoka: ", i+1)
             for column in range(input_data.shape[1]):
                 input_column = np.array([input_data[:, column]]).T
                 expected_column = np.array([expected_result[:, column]]).T
-                layer_output = self.predict(input_column).reshape(-1, 1)
+                layer_output = self.predict(input_column, True).reshape(-1, 1)
                 result = (layer_output - expected_column).reshape(layer_output.shape[0], 1)
                 layer_output_delta = 2/expected_result.shape[0] * result
                 self.update_weights(layer_output_delta, input_column)
 
     def update_weights(self, layer_output_delta, input_column):
-        layer_output_weight_delta = layer_output_delta * self.predict_to_layer(input_column, len(self.layers) - 1).T
+        layer_output_weight_delta = layer_output_delta * self.layers_results[0].T
 
         layer_hidden_delta = layer_output_delta
         for i in range(len(self.layers) - 1, 0, -1):
-            layer_result = self.predict_to_layer(input_column, i)
+            layer_result = self.layers_results[0]
             layer_hidden_delta = np.dot(self.layers[i].T, layer_hidden_delta)
-            layer_hidden_delta = layer_hidden_delta * self.ReLU_derivative(layer_result)
+            layer_hidden_delta = layer_hidden_delta * self.function_controller(layer_result, i, True)
             layer_hidden_weight_delta = layer_hidden_delta * input_column.T
             res = self.alpha * layer_hidden_weight_delta
             array = np.array(self.layers[i-1])
@@ -102,6 +116,30 @@ class FCL_API:
         self.update_layer(len(self.layers) - 1,
                           self.layers[len(self.layers) - 1] - self.alpha * layer_output_weight_delta)
 
+    def fit_batch(self, input_data, expected_result, alpha, rates):
+        self.alpha = alpha
+        for i in range(rates):
+            # print("epoka: ", i + 1)
+            batch_input = np.copy(input_data)
+            layer_hidden = np.dot(self.layers[0], batch_input)
+            layer_hidden = self.function_controller(layer_hidden, 0)
+            self.dropout_mask = np.random.binomial(1, 1 - 0.5, layer_hidden.shape)
+            layer_hidden = self.dropout_method(layer_hidden, 0.5)
+            layer_output = np.dot(self.layers[1], layer_hidden)
+            layer_output_delta = (2 / expected_result.shape[0] * (layer_output - expected_result)) / batch_input.shape[1]
+            layer_hidden_delta = np.dot(self.layers[1].T, layer_output_delta)
+            layer_hidden_delta = layer_hidden_delta * self.function_controller(layer_hidden, 0, True)
+            layer_hidden_delta = layer_hidden_delta * self.dropout_mask
+            layer_output_weight_delta = np.dot(layer_output_delta, layer_hidden.T)
+            layer_hidden_weight_delta = np.dot(layer_hidden_delta, batch_input.T)
+            self.update_layer(0, self.layers[0] - self.alpha * layer_hidden_weight_delta)
+            self.update_layer(1, self.layers[1] - self.alpha * layer_output_weight_delta)
+
+    def dropout_method(self, hidden_layer_result, percentage):
+        # dropout_mask = np.random.binomial(1, 1 - percentage, hidden_layer_result.shape)
+        dropout_result = np.multiply(self.dropout_mask, hidden_layer_result) * (1 / percentage)
+
+        return dropout_result
 
     def update_layer(self, layer_index, new_weight):
         self.layers[layer_index] = new_weight
